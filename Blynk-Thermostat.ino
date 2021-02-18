@@ -1,37 +1,29 @@
-#define NAMEandVERSION "Blynk-ThermostatV3.2"
+#define NOME "Termostato soggiorno"
 /*************************************************************
   Download latest Blynk library here:
     https://github.com/blynkkk/blynk-library/releases/latest
-
   Blynk is a platform with iOS and Android apps to control
   Arduino, Raspberry Pi and the likes over the Internet.
   You can easily build graphic interfaces for all your
   projects by simply dragging and dropping widgets.
-
     Downloads, docs, tutorials: http://www.blynk.cc
     Sketch generator:           http://examples.blynk.cc
     Blynk community:            http://community.blynk.cc
     Follow us:                  http://www.fb.com/blynkapp
                                 http://twitter.com/blynk_app
-
   Blynk library is licensed under MIT license
   This example code is in public domain.
-
  *************************************************************
-
   This Arduino project is made using Bynk platform and applies as an IoT Thermostat 
   with scheduling functions using the Blynk App for the User Interface.
-
   WARNING :
   For this example you'll need the following libraries:
   - Blynk
   - DHTesp - https://desire.giesecke.tk/index.php/2018/01/30/esp32-dht11/
   - Arduino OTA - https://github.com/esp8266/Arduino/blob/master/libraries/ArduinoOTA
   - OLED SSD1306 - 
-
   
  Virtual Pins: 
-
  V10 - Actual Temp 
  V11 - Actual Humidity 
  V12 - Time Interval Input 
@@ -44,8 +36,6 @@
  V19 - LedTimerInterval for monitoring the interval status  
  V20 - ledGPSTrigger for monitoring the proximity to the house
  V21 - ledGPSTrigger In radius monitoring
-
-
  *************************************************************/
 
 /* Comment this out to disable prints and save space */
@@ -58,15 +48,17 @@
 #include <BlynkSimpleEsp8266.h>
 
 #define DHTPIN 10          // Temp sensor hardware pin on SD3/GPIO10
-#include "DHTesp.h"
+#include "DHTesp.h"  // https://github.com/beegee-tokyo/DHTesp
 DHTesp dht;
-#include <TimeLib.h>
-#include <WidgetRTC.h>
+#include <TimeLib.h> // https://github.com/PaulStoffregen/Time
+#include <WidgetRTC.h> //aggiungere widget su app
 
-WidgetRTC rtc;
 BlynkTimer timer;
 
-#include "SSD1306.h" // alias for #include "SSD1306Wire.h"
+WidgetRTC rtc;
+
+
+#include "SSD1306.h" // https://github.com/ThingPulse/esp8266-oled-ssd1306
  SSD1306  display(0x3c, D7, D6); // SDA, SCL , GPIO 13 and GPIO 12
 
 
@@ -79,20 +71,20 @@ String display_temp;
 String display_humid;
 String dispTempSet;
 
-int tempset; // tempset value from pin V13
-int tempset2; // lower treshold for triggering the heating
+float tempset; // modificato tipo variabile con incremento/decrmento 0.5°C
+float tempset2; // isteresi
 int connectionattempts;  // restart the mcu after to many connection attempts
 
 
 float h;  //temperature value
-float t ; //humidity value
+float t; //humidity value
 String Interval;
 
 int StartHour = 0;
 int StopHour = 0;
 int StartMinute = 0;
 int StopMinute = 0;
-int Hour = 0;
+int Hour = 0; 
 int Minute = 0;
 
 
@@ -109,12 +101,12 @@ bool connection;
 
 // You should get Auth Token in the Blynk App.
 // Go to the Project Settings (nut icon).
-char auth[] = "auth";
+char auth[] = "j9B4T0jr4rCEZvsjB_Yc7MKp-4mZbXU-";
 
 // Your WiFi credentials.
 // Set password to "" for open networks.
-char ssid[] = "Home";
-char pass[] = "pass";
+char ssid[] = "D-Link-4E29A2";
+char pass[] = "2zXZhx6fKR";
 
 #define relay D1 //  relay  on GPIO5 , D1
 
@@ -141,7 +133,7 @@ IPAddress subnet_mask(255, 255, 255,   0);
 
 void setup()
 {
-  WiFi.hostname(NAMEandVERSION);
+  WiFi.hostname(NOME);
   WiFi.mode(WIFI_STA);
   // Debug console
   Serial.begin(9600);
@@ -151,7 +143,7 @@ void setup()
   pinMode (downPin, INPUT);
   pinMode (DHTPIN, INPUT);
   
-  WiFi.config(arduino_ip, gateway_ip, subnet_mask);
+ // WiFi.config(arduino_ip, gateway_ip, subnet_mask);
   
  // OTAdebug();
   displayInitSeq();
@@ -190,7 +182,7 @@ void displayInitSeq()
   display.flipScreenVertically();
   display.setTextAlignment(TEXT_ALIGN_CENTER);
   display.setFont(ArialMT_Plain_10);
-  display.drawString(64, 0, String(NAMEandVERSION)); 
+  display.drawString(64, 0, String(NOME)); 
   display.display();
   WiFi.begin(ssid, pass);
   delay(5000);  
@@ -213,7 +205,7 @@ void displayInitSeq()
     display.drawString(64, 40, "Connecting to Server...");
     delay(1000);
     display.display();
-    Blynk.begin(auth, ssid, pass, IPAddress(192,168,1,3), 8441);
+    Blynk.begin(auth, ssid, pass); // modificato
   }
   display.drawString(64, 50, "Connected to Server!");
   Serial.println("Connected to Blynk server");
@@ -277,6 +269,7 @@ void displayInitSeq()
 //}
 
 BLYNK_CONNECTED(){
+  
   Blynk.syncVirtual(V10, V11, V12, V13,V14, V16,V17,V18,V19,V20,V21);  // synk on connection
 yield();
 }
@@ -300,20 +293,20 @@ BLYNK_WRITE(V13)
   yield();
 }
 
-BLYNK_WRITE(V15) // ajust tempset by app buttons
+BLYNK_WRITE(V15) // adjust tempset by app buttons
 {
-  int stepperValue = param.asInt();
-  if (stepperValue == 1)       // assigning incoming value from pin V1 to a variable
+  float stepperValue = param.asFloat(); //mod. int con float
+  if (stepperValue == 0.5)       // assigning incoming value from pin V1 to a variable
   {
-    tempset++;
+    tempset+=0.5;
     Blynk.virtualWrite(V13, tempset);
     Serial.println(tempset);
     displayData();
     yield();
   }
-  else if (stepperValue == -1) 
+  else if (stepperValue == -0.5) 
   {
-    tempset--;
+    tempset-=0.5;
     Blynk.virtualWrite(V13, tempset);
     Serial.println(tempset);
     yield();
@@ -432,16 +425,15 @@ void connectionstatus()
 
 void checkInterval()
 {
-    String currentTime = String(Hour) + ":" + String(Minute) + ":" + String(second());
+    String currentTime = String(hour())+ ":" + minute() + ":" + second();
     //String currentDate = String(day()) + " " + month() + " " + year();
-    Interval = String( String(StartHour) + ":" + String(StartMinute) + " - " + String(StopHour) + ":" + String(StopMinute));
+    Interval = String(String(StartHour) + ":" + String(StartMinute) + " - " + String(StopHour) + ":" + String(StopMinute));
     yield();
     Serial.print("Current time: " + String(currentTime));
     Serial.println();
     Blynk.syncVirtual(V12,V17); //synk the time interval and the gps trigger.
   
   /*
-
   *23:10 - 23:40
   *2:00 - 2:40
   *2:50 - 2:20
@@ -605,7 +597,7 @@ void displayData() {
       {
         if (interval == 1)
         {
-          display.drawString(0, 0, "Set: " + dispTempSet + "°C    " + Interval);  
+          display.drawString(0, 0, "Set: " + dispTempSet + "°C   " + String(Interval));  
         }
 //        else 
 //        {
@@ -717,7 +709,7 @@ void HeatingLogic()
 
 void TempCompare()
 {
-  tempset2 = tempset-1;   
+  tempset2 = tempset-1;   //isteresi di 1°C
   // incepe din starea
   // HEATING = 0
   // STOPPED = 0
