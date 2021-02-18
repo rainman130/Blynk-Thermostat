@@ -15,4 +15,8 @@ IoT thermostat using Blynk Platform
 	- Hardware Buttons for changing the temperature
 	- Schedule working interval
 	- Auto disable when it's on Manual
+
+- My improvements:
+	- Step 0.5°C (before was 1°C)
+	- Working with blynk server
 	
